@@ -1,36 +1,32 @@
-# Use the official PHP image with Apache
+# Use official PHP image with Apache
 FROM php:8.2-apache
-
-# Install necessary PHP extensions
-RUN apt-get update && apt-get install -y \
-    libpng-dev \
-    libjpeg-dev \
-    libfreetype6-dev \
-    zip \
-    unzip \
-    && docker-php-ext-configure gd --with-freetype --with-jpeg \
-    && docker-php-ext-install gd pdo pdo_mysql
-
-# Enable Apache mod_rewrite
-RUN a2enmod rewrite
 
 # Set working directory
 WORKDIR /var/www/html
 
-# Copy application files to the container
-COPY . .
+# Install required extensions
+RUN docker-php-ext-install pdo pdo_mysql
 
-# Install Composer
-RUN curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer
+# Enable Apache rewrite module
+RUN a2enmod rewrite
 
-# Install Laravel dependencies
-RUN composer install --no-dev --optimize-autoloader
+# Copy application files
+COPY . /var/www/html
 
-# Set file permissions
+# Set correct permissions
 RUN chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache
 
-# Expose port 80 for Apache
+# Update Apache configuration
+RUN echo '<VirtualHost *:80>
+    DocumentRoot /var/www/html/public
+    <Directory /var/www/html>
+        AllowOverride All
+        Require all granted
+    </Directory>
+</VirtualHost>' > /etc/apache2/sites-available/000-default.conf
+
+# Expose port 80
 EXPOSE 80
 
-# Start Apache in the foreground
+# Start Apache
 CMD ["apache2-foreground"]
