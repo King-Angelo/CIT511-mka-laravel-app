@@ -10,26 +10,28 @@ RUN docker-php-ext-install pdo pdo_mysql
 # Enable Apache rewrite module
 RUN a2enmod rewrite
 
-# Copy Laravel composer files first
+# Copy Laravel's Composer files first (to optimize Docker caching)
 COPY composer.json composer.lock ./
 
-# Install Composer & Laravel dependencies
+# Install PHP dependencies
 RUN apt-get update && apt-get install -y unzip \
     && curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer \
-    && composer install --no-dev --optimize-autoloader \
-    && rm -rf /var/lib/apt/lists/*
+    && composer install --no-dev --optimize-autoloader
 
-# Copy Laravel application files AFTER dependencies are installed
-COPY . .
+# Copy Laravel application files
+COPY . . 
 
 # Set proper permissions
-RUN chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache /var/www/html/vendor
+RUN chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache
 
-# Run Laravel optimization commands
-RUN php artisan config:cache && php artisan route:cache && php artisan view:cache || true
+# Copy custom Apache config
+COPY 000-default.conf /etc/apache2/sites-available/000-default.conf
 
 # Expose port 80
 EXPOSE 80
+
+# Clear Laravel cache
+RUN php artisan config:clear && php artisan cache:clear && php artisan config:cache
 
 # Start Apache
 CMD ["apache2-foreground"]
